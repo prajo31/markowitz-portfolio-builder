@@ -1,4 +1,4 @@
-bash -lc cat > /mnt/data/app.py <<'PY'
+
 """
 Markowitz Portfolio Builder
 ---------------------------
