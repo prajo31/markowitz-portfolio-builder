@@ -525,43 +525,71 @@ def simulate_rebalanced_portfolio(
     starting_value,
     frequency,
 ):
+    """
+    Simulate a portfolio that is rebalanced to target_weights
+    on a monthly, quarterly, or annual schedule.
+    """
+
     prices = prices.dropna(how="any")
 
     if prices.empty:
         return pd.Series(dtype=float)
 
     freq_map = {
-        "Monthly": "ME",
-        "Quarterly": "QE",
-        "Annually": "YE",
+        "Monthly": "M",
+        "Quarterly": "Q",
+        "Annually": "Y",
     }
 
     resample_freq = freq_map[frequency]
 
+    # Get the last available trading day in each rebalance period.
     rebalance_dates = (
         prices
         .resample(resample_freq)
         .last()
+        .dropna(how="any")
         .index
     )
 
-    rebalance_dates = set(
-        prices.index[
-            prices.index.searchsorted(rebalance_dates, side="left")
-        ].intersection(prices.index)
-    )
+    # Keep only dates that actually exist in the price index.
+    # This avoids out-of-bounds errors from searchsorted.
+    actual_rebalance_dates = []
+
+    for dt in rebalance_dates:
+        valid_dates = prices.index[prices.index <= dt]
+
+        if len(valid_dates) > 0:
+            actual_rebalance_dates.append(valid_dates[-1])
+
+    rebalance_dates = set(actual_rebalance_dates)
+
+    target_weights = np.array(target_weights, dtype=float)
 
     first_prices = prices.iloc[0]
-    holdings = starting_value * target_weights / first_prices
+
+    holdings = (
+        starting_value
+        * target_weights
+        / first_prices
+    )
 
     values = []
 
     for date, price_row in prices.iterrows():
-        current_value = float((holdings * price_row).sum())
+
+        current_value = float(
+            (holdings * price_row).sum()
+        )
+
         values.append(current_value)
 
         if date in rebalance_dates:
-            holdings = current_value * target_weights / price_row
+            holdings = (
+                current_value
+                * target_weights
+                / price_row
+            )
 
     return pd.Series(
         values,
@@ -1203,24 +1231,24 @@ if run:
     )
 
     rebalance_results = {
-        "Buy & Hold": simulate_buy_and_hold(
+        "Buy & Hold": _buy_and_hold(
             prices,
             selected_weights,
             investment,
         ),
-        "Monthly": simulate_rebalanced_portfolio(
+        "Monthly": _rebalanced_portfolio(
             prices,
             selected_weights,
             investment,
             "Monthly",
         ),
-        "Quarterly": simulate_rebalanced_portfolio(
+        "Quarterly": _rebalanced_portfolio(
             prices,
             selected_weights,
             investment,
             "Quarterly",
         ),
-        "Annually": simulate_rebalanced_portfolio(
+        "Annually": _rebalanced_portfolio(
             prices,
             selected_weights,
             investment,
