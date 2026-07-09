@@ -94,18 +94,6 @@ n_frontier = st.sidebar.slider(
 
 st.sidebar.divider()
 
-st.sidebar.subheader("Rebalancing Alerts")
-
-rebalance_threshold = (
-    st.sidebar.slider(
-        "Rebalance Threshold (%)",
-        min_value=1,
-        max_value=20,
-        value=5,
-    )
-    / 100.0
-)
-
 st.sidebar.subheader("Retirement planner")
 
 retirement_years = st.sidebar.slider(
@@ -137,60 +125,6 @@ forecast_sims = st.sidebar.slider(
     step=500,
 )
 
-# ---------------------------------------------------------------------
-# Rebalancing Alerts
-# ---------------------------------------------------------------------
-
-
-def generate_rebalancing_alerts(
-    prices,
-    target_weights,
-    tickers,
-    investment,
-):
-    latest_prices = prices.iloc[-1]
-
-    initial_prices = prices.iloc[0]
-
-    shares = (
-        investment
-        * target_weights
-        / initial_prices.values
-    )
-
-    current_values = (
-        shares
-        * latest_prices.values
-    )
-
-    total_value = current_values.sum()
-
-    current_weights = (
-        current_values
-        / total_value
-    )
-
-    df = pd.DataFrame(
-        {
-            "Ticker": tickers,
-            "Target Weight": target_weights,
-            "Current Weight": current_weights,
-        }
-    )
-
-    df["Deviation"] = (
-        df["Current Weight"]
-        - df["Target Weight"]
-    )
-
-    target_value = total_value * df["Target Weight"]
-
-    df["Trade Amount"] = (
-        target_value
-        - current_values
-    )
-
-    return df
 run = st.sidebar.button(
     "Build portfolio",
     type="primary",
@@ -1147,17 +1081,16 @@ if run:
             .sort_values(ascending=False)
         )
 
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(
-    [
-        "Optimization",
-        "Allocation",
-        "Backtest",
-        "Risk Metrics",
-        "Retirement Planner",
-        "Commentary",
-        "Rebalancing Alerts",
-    ]
-)
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        [
+            "Optimization",
+            "Allocation",
+            "Backtest",
+            "Risk Metrics",
+            "Retirement Planner",
+            "Commentary",
+        ]
+    )
 
     with tab1:
         st.plotly_chart(
@@ -1292,104 +1225,7 @@ if run:
             retirement_years,
             monthly_contribution,
         )
-with tab7:
 
-    st.subheader("Live Rebalancing Monitor")
-
-    alerts = generate_rebalancing_alerts(
-        prices,
-        selected_weights,
-        tickers,
-        investment,
-    )
-
-    alerts["Alert"] = (
-        alerts["Deviation"].abs()
-        > rebalance_threshold
-    )
-
-    st.dataframe(
-        alerts.style.format(
-            {
-                "Target Weight": "{:.2%}",
-                "Current Weight": "{:.2%}",
-                "Deviation": "{:+.2%}",
-                "Trade Amount": "${:,.0f}",
-            }
-        ),
-        use_container_width=True,
-    )
-
-    triggered = alerts[
-        alerts["Alert"]
-    ]
-
-    if len(triggered) == 0:
-
-        st.success(
-            "✅ Portfolio currently within rebalancing limits."
-        )
-
-    else:
-
-        st.warning(
-            f"⚠ {len(triggered)} positions exceed "
-            f"the {rebalance_threshold:.0%} threshold."
-        )
-
-        st.subheader(
-            "Suggested Trades"
-        )
-
-        for _, row in triggered.iterrows():
-
-            if row["Deviation"] > 0:
-
-                st.error(
-                    f"SELL {row['Ticker']} "
-                    f"| Drift {row['Deviation']:+.2%} "
-                    f"| Amount ${abs(row['Trade Amount']):,.0f}"
-                )
-
-            else:
-
-                st.success(
-                    f"BUY {row['Ticker']} "
-                    f"| Drift {row['Deviation']:+.2%} "
-                    f"| Amount ${abs(row['Trade Amount']):,.0f}"
-                )
-
-    chart_df = alerts.copy()
-
-    fig = go.Figure()
-
-    fig.add_trace(
-        go.Bar(
-            x=chart_df["Ticker"],
-            y=chart_df["Current Weight"],
-            name="Current",
-        )
-    )
-
-    fig.add_trace(
-        go.Bar(
-            x=chart_df["Ticker"],
-            y=chart_df["Target Weight"],
-            name="Target",
-        )
-    )
-
-    fig.update_layout(
-        title="Current vs Target Weights",
-        yaxis_tickformat=".0%",
-        barmode="group",
-        template="plotly_white",
-    )
-
-    st.plotly_chart(
-        fig,
-        use_container_width=True,
-    )
         st.markdown(commentary)
 
 else:
