@@ -4,3 +4,5 @@ pandas
 numpy
 scipy
 plotly
+pandas-datareader
+curl_cffi
